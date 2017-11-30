@@ -1,3 +1,8 @@
+---
+title: "CSHL Lab 1"
+output: html_document
+---
+
 # CSHL Computational Genomics Statistics Lab I
 
 ## Getting started/projects
@@ -31,7 +36,11 @@ close(con)
 bm = bodymap.eset
 bm
 ``` 
-
+4. The genomics data is here: 
+```{r}
+exp_data = exprs(bm)
+dim(exp_data)
+```
 
 
 
