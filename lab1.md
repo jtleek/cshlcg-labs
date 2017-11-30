@@ -39,7 +39,7 @@ dim(exp_data)
 5. Let's just look at a bit of the data
 ```r
 head(exp_data,n=5)
-exprs[1:2,1:2]
+exp_data[1:2,1:2]
 
 ```
 6. Now let's look at the phenotype data
@@ -202,6 +202,9 @@ ggplot(tidybm, aes(x=gender, y=log2(value+1))) +
 ```
 4. You can use dplyr to filter (much more on this [here](https://docs.google.com/presentation/d/15meI7W3MeF0afEV5ggdqXfwOIlwy5tcFYTJM-VUGHTs/edit?usp=sharing))
 ```r
+install.packages("dplyr")
+library(dplyr)
+
 tidybm = tidybm %>% group_by(gene) %>%
   mutate(gene_ave = mean(value)) %>% ungroup()
 tidybm %>% filter(gene=="ENSG00000000003") %>%
