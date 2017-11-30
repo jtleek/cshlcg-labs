@@ -4,7 +4,7 @@
 
 1. Open Rstudio
 2. Create a new project (slides [46-47 here](http://jtleek.com/advdatasci/slides/03-rmarkdown-and-github.html#46) are potentially helpful)
-3. Make sure the package `rmarkdown` is installed. To do this run the command `install.packages("rmarkdown")`. 
+3. Make sure the packages `rmarkdown` and `devtools` are installed. To do this run the command `install.packages(c("rmarkdown","devtools")`). 
 3. Create a new R markdown file (slides [4-5 here](http://jtleek.com/advdatasci/slides/03-rmarkdown-and-github.html#4) are potential helpful)
 5. Copy and paste [this text](https://raw.githubusercontent.com/SISBID/Module1/gh-pages/labs/rmarkdown-lab.Rmd) into your R markdown file and save it. 
 6. Brief R markdown tour (slides [6-13 here are potentially useful](http://jtleek.com/advdatasci/slides/03-rmarkdown-and-github.html#6))
