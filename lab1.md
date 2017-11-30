@@ -39,7 +39,7 @@ dim(exp_data)
 5. Let's just look at a bit of the data
 ```r
 head(exp_data,n=5)
-exprs[1:2,1:2]
+exp_data[1:2,1:2]
 
 ```
 6. Now let's look at the phenotype data
@@ -194,7 +194,7 @@ tidybm
 ```
 3. Now you can use the ["tidyverse"](https://www.tidyverse.org/)
 ```r
-install.packages("ggplot2")
+install.packages("tidyverse")
 library(ggplot2)
 
 ggplot(tidybm, aes(x=gender, y=log2(value+1))) +
