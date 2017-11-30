@@ -37,7 +37,7 @@ bm = bodymap.eset
 bm
 ``` 
 4. The genomics data is here: 
-```{r}
+```r
 exp_data = exprs(bm)
 dim(exp_data)
 ```
