@@ -1,0 +1,268 @@
+---
+title: "Lab 2: Modeling"
+output: html_document
+---
+
+# Install packages
+
+We won't run this because I've already installed them in the base package. But you would have to do this one time if you were doing this with new packages in the future. 
+
+
+```{r, eval=FALSE}
+source("http://www.bioconductor.org/biocLite.R")
+biocLite(c("Biobase"))
+biocLite(c("tximport",
+           "tximportData",
+           "rhdf5",
+           "DESeq2",
+           "limma",
+           "edgeR"))
+
+```
+
+
+# Load the libraries
+
+Here we load the libraries we will need for analysis 
+
+```{r}
+
+library(rhdf5)
+library(tximport)
+library(tximportData)
+library(SummarizedExperiment)
+library(DESeq2)
+library(limma)
+library(edgeR)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(RSkittleBrewer)
+library(pheatmap)
+library(dendextend)
+
+```
+
+Set up the color palette for pretty plots
+
+```{r}
+trop = RSkittleBrewer("tropical")
+colramp = colorRampPalette(c(trop[3],"white",trop[2]))(9)
+palette(trop)
+```
+
+
+# Load some data
+
+You created some transcript gtf/gff files that show the assembled "structure" of a transcriptome. You would need to run a "quantification" step to get the relative abundance of each of the transcripts. This step could be done either using StringTie or one of many other tools like Kalisto. 
+
+The `tximportData` file shows some examples of quantified files. We will start with the cufflinks 
+
+
+```{r}
+dir <- system.file("extdata", package = "tximportData")
+samples <- read.table(file.path(dir, "samples.txt"), header = TRUE)
+tx2gene <- read_csv(file.path(dir, "tx2gene.gencode.v27.csv"))
+head(tx2gene)
+
+
+files <- file.path(dir, "kallisto_boot", samples$run, "abundance.h5")
+names(files) <- paste0("sample", 1:6)
+txi.kallisto <- tximport(files, type = "kallisto", txOut = TRUE)
+head(txi.kallisto$counts)
+
+gene.kallisto = summarizeToGene(txi.kallisto,tx2gene)
+counts = gene.kallisto$counts
+
+samples$treatment = rep(c("A","B"),each=3)
+rse <- SummarizedExperiment(assays=SimpleList(counts=counts,
+                                              l2counts = log2(counts+1)),
+                            colData=DataFrame(samples))
+```
+
+# Hierarchical clustering
+
+First let's make a plot like we did before. Now we'll need to use the `assays` command. 
+
+```{r}
+boxplot(assays(rse)$counts[,2])
+```
+
+Let's do some filtering: 
+
+```{r}
+high_genes = rowMeans(assays(rse)$l2counts) > 10
+rse = rse[high_genes,]
+```
+
+We can now compute distance between samples: 
+
+```{r}
+d1 = dist(t(assays(rse)$l2counts))
+```
+
+Let's look at this distance matrix: 
+
+```{r}
+pheatmap(as.matrix(d1),cluster_cols=FALSE,cluster_rows=FALSE)
+```
+
+
+
+Cluster the data with hierarchical clustering: 
+
+```{r}
+hclust1 = hclust(d1,method="average")
+```
+
+Make a plot of the clustering: 
+
+```{r}
+plot(hclust1)
+```
+
+
+We can also plot by colors
+
+```{r}
+dend = as.dendrogram(hclust1)
+dend = color_labels(hclust1,4,col=1:4)
+plot(dend)
+```
+
+
+We can also make these plots colored by specific sample characteristics: 
+
+
+
+```{r}
+labels_colors(dend) = c(1,1,1,2,2,2)
+plot(dend)
+```
+
+
+
+Make clustering plot directly (doesn't save the clustering)
+
+```{r}
+pheatmap(assays(rse)$l2counts,cluster_rows=FALSE)
+```
+
+# Kmeans clustering
+
+We can cluster the genes into a specific number of groups: 
+
+```{r}
+kmeans1 = kmeans(assays(rse)$l2counts,centers=3)
+names(kmeans1)
+```
+
+Now we plot the cluster means
+```{r}
+matplot(t(kmeans1$centers),col=1:3,type="l",lwd=3)
+```
+
+How many genes in each cluster?
+
+```{r}
+table(kmeans1$cluster)
+```
+
+
+Heatmap kmeans clustered
+
+```{r}
+pheatmap(assays(rse)$l2counts[order(kmeans1$cluster),],
+  cluster_cols=F,
+  cluster_rows=F,show_rownames =FALSE)
+```
+
+This is not deterministic!!! Try running this a few times: 
+
+```{r}
+kmeans2 = kmeans(assays(rse)$l2counts,centers=3)
+table(kmeans1$cluster,kmeans2$cluster)
+```
+
+
+# Basic limma-voom analysis
+
+Create the object for limma analysis with filtering 
+
+```{r}
+y <- DGEList(assays(rse)$counts)
+keep <- filterByExpr(y)
+y <- y[keep, ]
+```
+
+Calculate normalization factors 
+```{r}
+y <- calcNormFactors(y)
+design <- model.matrix( ~ treatment, data = colData(rse))
+```
+
+Check for mean variance relationship
+```{r}
+v <- voom(y, design,plot=TRUE)
+```
+
+
+Calculate the model fits
+
+```{r}
+fit <- lmFit(v, design)
+fit <- eBayes(fit)
+```
+
+
+Volcano plot - looking for statistically significant effects with also big fold changes
+
+```{r}
+limma::volcanoplot(fit, coef = 2)
+```
+
+Look at an MA plot to see if you see strange patterns
+
+```{r}
+limma::plotMA(fit, coef = 2,col=2)
+```
+
+
+Look at top hits
+
+```{r}
+top <- topTable(fit, number = 10)
+```
+
+Look at p-values
+
+```{r}
+all <- topTable(fit, number = Inf)
+hist(all$P.Value,col=3)
+```
+
+We can use the Benjamini Hochberg adjusted p-values
+
+```{r}
+all <- topTable(fit, number = Inf)
+hist(all$adj.P.Val,col=3)
+```
+
+Or we can adjust them directly: 
+
+```{r}
+all$bonf_pval = p.adjust(all$P.Value,method="bonferroni")
+hist(all$bonf_pval,col=3)
+```
+
+
+# Session Info
+
+
+This is for me to debug what happened later
+
+```{r}
+sessionInfo()
+```
