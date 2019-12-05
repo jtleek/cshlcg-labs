@@ -1,0 +1,45 @@
+---
+title: "A little about our stats background"
+output: html_document
+---
+
+# Load libraries
+## Load libraries subtitle
+
+You may have to install these first! The first two come from CRAN, the third one comes from Github! 
+
+```{r libraries}
+library(gplots)
+library(googlesheets)
+library(RSkittleBrewer)
+```
+
+
+# Read in the data
+
+This is the data about us that we just created! 
+
+```{r read_data}
+my_url = "https://docs.google.com/spreadsheets/d/11fHItDjoutvLG8XLx2rk95L2E8AJyPzThvzOleUr7rU/edit?usp=sharing"
+my_gs = gs_url(my_url)
+dat = gs_read(my_gs)
+```
+
+# Make the plot
+
+This makes the pretty heatmap that shows what we know!
+
+```{r make_plot}
+trop = RSkittleBrewer("tropical")
+colramp = colorRampPalette(c(trop[3],"white",trop[2]))(9)
+palette(trop)
+
+dat = as.matrix(dat)
+dat[is.na(dat)]= 0
+
+par(mar=c(5,5,5,5))
+heatmap.2(as.matrix(dat),col=colramp,Rowv=NA,Colv=NA,
+          dendrogram="none", scale="none",
+          trace="none",margins=c(10,2))
+```
+
