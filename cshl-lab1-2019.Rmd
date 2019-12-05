@@ -1,0 +1,314 @@
+---
+title: "Lab 1: Import, organization, plotting"
+output: html_document
+---
+
+# Install packages
+
+We won't run this because I've already installed them in the base package. But you would have to do this one time if you were doing this with new packages in the future. 
+
+
+```{r, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.10")
+
+BiocManager::install(c("edgeR",
+                       "tximport",
+                       "tximportData",
+                       "rhdf5",
+                       "DESeq2",
+                       "limma",
+                       "edgeR"))
+
+install.packages('tidyverse')
+install.packages('viridis')
+
+```
+
+
+# Load the libraries
+
+Here we load the libraries we will need for analysis 
+
+```{r}
+
+library(rhdf5)
+library(tximport)
+library(tximportData)
+library(SummarizedExperiment)
+library(DESeq2)
+library(limma)
+library(edgeR)
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(viridis)
+
+
+```
+
+
+# Load some data
+
+You created some transcript gtf/gff files that show the assembled "structure" of a transcriptome. You would need to run a "quantification" step to get the relative abundance of each of the transcripts. This step could be done either using StringTie or one of many other tools like Kalisto. 
+
+The `tximportData` file shows some examples of quantified files. We will start with the cufflinks 
+
+
+```{r}
+dir <- system.file("extdata", package = "tximportData")
+list.files(dir)
+```
+
+
+## Import StringTie quantification data with tximport
+
+We are going to use the tximport package to load the data from some StringTie data. You can also use tximport for a variety of other data types. 
+
+To do this with StringTie you would need to run the command in Galaxy to quantify, something like this: 
+
+`stringtie -eB -G transcripts.gff <source_file.bam>`
+
+which will produce a set of `c_tab` files. These can be imported using the commands:
+
+```{r import_stringtie, eval=FALSE}
+tmp <- read_tsv(files[1])
+tx2gene <- tmp[, c("t_name", "gene_name")]
+txi <- tximport(files, type = "stringtie", tx2gene = tx2gene)
+```
+
+More info here: http://ccb.jhu.edu/software/stringtie/index.shtml?t=manual
+
+## Import Kallisto quantification data with tximport
+
+An alternative, widely used, transcript quantification software is [Kallisto](https://pachterlab.github.io/kallisto/). We will use these quantifications for this tutorial (since there is a nice example in the package tutorial!)
+
+First read in the sample information (this is one of the three tables we learned about): 
+
+```{r read_samp}
+samples <- read.table(file.path(dir, "samples.txt"), header = TRUE)
+samples
+```
+
+We will also need information on transcripts and genes. This will depend on what you used to quantify so be careful! (this is the 2nd table)
+
+```{r read_gn}
+tx2gene <- read_csv(file.path(dir, "tx2gene.gencode.v27.csv"))
+head(tx2gene)
+```
+
+
+Now read in the quantified transcripts (this is the third table) 
+
+```{r read_tx_ab}
+files <- file.path(dir, "kallisto_boot", samples$run, "abundance.h5")
+names(files) <- paste0("sample", 1:6)
+txi.kallisto <- tximport(files, type = "kallisto", txOut = TRUE)
+head(txi.kallisto$counts)
+```
+
+We could also read in the quantites at the gene level 
+
+```{r}
+gene.kallisto = summarizeToGene(txi.kallisto,tx2gene)
+```
+
+
+## Doing some exploration 
+
+Now let's look at the transcript level data:  
+
+```{r examine}
+names(txi.kallisto)
+glimpse(txi.kallisto)
+```
+
+And the gene level data 
+
+```{r examine}
+names(gene.kallisto)
+glimpse(gene.kallisto)
+```
+
+Now lets look at the counts
+
+```{r counts}
+head(gene.kallisto$counts)
+dim(gene.kallisto$counts)
+```
+
+Let's look at the distribution of counts. 
+
+```{r ggplot_err,eval=FALSE}
+ggplot(gene.kallisto$counts,aes(y=sample1)) + geom_boxplot() + theme_minimal()
+```
+
+Uh oh....two approaches here:
+
+1. Go to base R 
+
+
+```{r}
+boxplot(gene.kallisto$counts[,-1])
+```
+
+
+2. Make this "tidy"
+
+```{r tidy_kallisto}
+tidy_kallisto = as_tibble(gene.kallisto$counts)
+tidy_kallisto$gene = rownames(gene.kallisto$counts) 
+tidy_kallisto = tidy_kallisto %>% 
+  gather(sample,value,sample1:sample6)
+```
+
+```{r slow_ggplot, eval=FALSE}
+##Slowish
+tidy_kallisto %>%
+  ggplot(aes(x=sample,y=value,group=sample,colour=sample)) + 
+  geom_boxplot() + 
+  theme_minimal()
+```
+
+
+## Some more exploration
+
+Normal data looks, well, "normal"
+
+```{r}
+hist(rnorm(1000))
+```
+
+Gene counts are not: 
+
+```{r}
+counts = gene.kallisto$counts
+hist(counts[,1],col=2,breaks=100)
+```
+
+
+One way is to use the log
+
+```{r}
+hist(log(counts[,1]),col=2,breaks=100)
+```
+
+But there is a problem!
+
+```{r}
+min(log(counts))
+```
+
+People often remove this problem by adding a small number before taking the log
+
+```{r}
+min(log(counts[,1] + 1))
+```
+
+Another common choice is log base 2, because then differences between values can be interpreted as "fold changes":
+
+```{r}
+hist(log2(counts[,1] + 1),breaks=100,col=2)
+```
+
+
+Another common transform is to remove genes with low counts: 
+
+```{r}
+hist(rowSums(counts==0),col=2)
+```
+
+
+We could filter these out: 
+
+```{r}
+low_genes = rowMeans(counts) < 5
+table(low_genes)
+filt_counts = counts[!low_genes,]
+dim(filt_counts)
+```
+
+Our data is starting to look a bit nicer
+
+```{r}
+hist(log2(filt_counts[,1] + 1),col=2)
+```
+
+Now we can do things like compare replicates
+
+```{r}
+plot(log2(filt_counts[,1]+1),log2(filt_counts[,2]+1),pch=19,col=2)
+```
+
+A better way is an M-A plot. 
+
+```{r}
+mm = log2(filt_counts[,1]+1) - log2(filt_counts[,2]+1)
+aa = log2(filt_counts[,1]+1) + log2(filt_counts[,2]+1)
+plot(aa,mm,col=2,pch=19)
+```
+
+# Making the three tables and running DESeq
+
+One thing you might have noticed is that when we started filtering there is a problem. We filtered the genes but not the annotation! So we want the genes/annotation/metadata to be lined up. We can do this with a `SummarizedExperiment` object: 
+
+```{r}
+samples$treatment = rep(c("A","B"),each=3)
+rse <- SummarizedExperiment(assays=SimpleList(counts=counts),
+                            colData=DataFrame(samples))
+rse
+```
+
+
+Now we can subset the rse object: 
+
+```{r}
+rse[,1:3]
+rse[1:10, ]
+```
+
+
+# Basic limma-voom analysis
+
+There are a bunch of ways to do this, one is to read in the data directly to have it ready for limma/voom
+
+```{r}
+txi <- tximport(files, type = "kallisto", tx2gene = tx2gene, countsFromAbundance = "lengthScaledTPM")
+```
+
+Create the object for limma analysis with filtering 
+
+```{r}
+y <- DGEList(txi$counts)
+keep <- filterByExpr(y)
+y <- y[keep, ]
+```
+
+Calculate normalization factors 
+```{r}
+y <- calcNormFactors(y)
+design <- model.matrix(~condition, data = sampleTable)
+v <- voom(y, design)
+```
+
+Calculate the model fits
+
+```{r}
+fit <- lmFit(v, design)
+fit <- eBayes(fit)
+```
+
+Volcano plot
+
+```{r}
+limma::volcanoplot(fit, coef = 2)
+```
+
+Look at top hits
+
+```{r}
+top <- topTable(fit, number = 10)
+```
