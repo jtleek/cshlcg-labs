@@ -39,17 +39,11 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(readr)
-library(RSkittleBrewer)
+library(tidyr)
+
 
 ```
 
-Set up the color palette for pretty plots
-
-```{r}
-trop = RSkittleBrewer("tropical")
-colramp = colorRampPalette(c(trop[3],"white",trop[2]))(9)
-palette(trop)
-```
 
 
 # Load some data
@@ -143,6 +137,7 @@ dim(gene.kallisto$counts)
 Let's look at the distribution of counts. 
 
 ```{r ggplot_err,eval=FALSE}
+## Throws an error
 ggplot(gene.kallisto$counts,aes(y=sample1)) + geom_boxplot() + theme_minimal()
 ```
 
@@ -290,7 +285,7 @@ y <- y[keep, ]
 Calculate normalization factors 
 ```{r}
 y <- calcNormFactors(y)
-design <- model.matrix(~condition, data = sampleTable)
+design <- model.matrix(~treatment, data = samples)
 v <- voom(y, design)
 ```
 

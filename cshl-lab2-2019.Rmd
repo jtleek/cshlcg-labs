@@ -9,14 +9,21 @@ We won't run this because I've already installed them in the base package. But y
 
 
 ```{r, eval=FALSE}
-source("http://www.bioconductor.org/biocLite.R")
-biocLite(c("Biobase"))
-biocLite(c("tximport",
-           "tximportData",
-           "rhdf5",
-           "DESeq2",
-           "limma",
-           "edgeR"))
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.10")
+
+BiocManager::install(c("edgeR",
+                       "tximport",
+                       "tximportData",
+                       "rhdf5",
+                       "DESeq2",
+                       "limma",
+                       "edgeR"))
+
+install.packages('tidyverse')
+install.packages('viridis')
+install.packages('dendextend)
 
 ```
 
@@ -39,26 +46,18 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(readr)
-library(RSkittleBrewer)
 library(pheatmap)
 library(dendextend)
 
 ```
 
-Set up the color palette for pretty plots
-
-```{r}
-trop = RSkittleBrewer("tropical")
-colramp = colorRampPalette(c(trop[3],"white",trop[2]))(9)
-palette(trop)
-```
 
 
 # Load some data
 
 You created some transcript gtf/gff files that show the assembled "structure" of a transcriptome. You would need to run a "quantification" step to get the relative abundance of each of the transcripts. This step could be done either using StringTie or one of many other tools like Kalisto. 
 
-The `tximportData` file shows some examples of quantified files. We will start with the cufflinks 
+The `tximportData` file shows some examples of quantified files. 
 
 
 ```{r}
