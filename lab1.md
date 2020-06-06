@@ -202,6 +202,9 @@ ggplot(tidybm, aes(x=gender, y=log2(value+1))) +
 ```
 4. You can use dplyr to filter (much more on this [here](https://docs.google.com/presentation/d/15meI7W3MeF0afEV5ggdqXfwOIlwy5tcFYTJM-VUGHTs/edit?usp=sharing))
 ```r
+install.packages("dplyr")
+library(dplyr)
+
 tidybm = tidybm %>% group_by(gene) %>%
   mutate(gene_ave = mean(value)) %>% ungroup()
 tidybm %>% filter(gene=="ENSG00000000003") %>%
